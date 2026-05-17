@@ -1,3 +1,6 @@
-yfinance
+matplotlib
 pandas
+pandas-datareader
 plotly
+requests
+yfinance

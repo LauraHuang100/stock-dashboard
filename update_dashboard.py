@@ -87,17 +87,15 @@ CONFIG = {
         # "Bitcoin vs Stock Market": ["BTC", "SPY"],
     },
 
-    "start_date": "2000-01-01",
-
-    # Path to the HTML dashboard (now stored in OneDrive folder)
-    "html_path": Path(r"C:\Users\laura\OneDrive\Documents\Python\wma_charts") / "wma_dashboard.html",
-
-    # Directory to save chart images temporarily (same OneDrive folder)
-    "chart_dir": Path(r"C:\Users\laura\OneDrive\Documents\Python\wma_charts"),
-
     # Start date for historical data (goes back to first available date for each ticker)
     # Yahoo Finance will return available data; not all tickers have data back to 1920
     "start_date": "1920-01-01",
+
+    # Path to the HTML dashboard in the repository
+    "html_path": Path(__file__).resolve().parent / "index.html",
+
+    # Directory to save chart images temporarily in the repository
+    "chart_dir": Path(__file__).resolve().parent / "charts",
 
     # ── Gmail settings ───────────────────────────────────────────────────────
     # Use an App Password (not your regular password):
