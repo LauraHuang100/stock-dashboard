@@ -39,6 +39,54 @@
   .bearish { background: #3a1a1a; color: #f85149; border: 1px solid #da3633; }
   .neutral { background: #1e2a3a; color: #79c0ff; border: 1px solid #388bfd; }
   footer { text-align: center; padding: 12px; font-size: 0.75rem; color: #484f58; border-top: 1px solid #21262d; }
+  
+  /* Mobile Responsiveness */
+  @media (max-width: 768px) {
+    header { flex-direction: column; gap: 8px; padding: 12px 16px; }
+    header h1 { font-size: 1.1rem; }
+    header span { font-size: 0.7rem; }
+    
+    .controls { padding: 12px 16px; gap: 12px; flex-direction: column; }
+    .control-group { width: 100%; }
+    label { font-size: 0.7rem; }
+    select { width: 100%; min-width: unset; font-size: 1rem; padding: 10px 12px; }
+    
+    .checkbox-group { flex-direction: column; gap: 8px; width: 100%; }
+    .checkbox-item { font-size: 0.95rem; }
+    .checkbox-item input[type=checkbox] { width: 18px; height: 18px; }
+    
+    #status { margin-left: 0; margin-top: 8px; }
+    
+    .tabs { padding: 0 12px; gap: 0; overflow-x: auto; }
+    .tab-button { padding: 10px 12px; font-size: 0.85rem; }
+    
+    #chart-container { padding: 12px 16px; }
+    #chart { height: 400px; }
+    #comparison-chart { height: 400px; }
+    
+    .signal-bar { padding: 10px 16px; gap: 8px; flex-direction: column; align-items: flex-start; }
+    .signal-bar span { margin-right: 0; margin-bottom: 4px; }
+    .signal { padding: 6px 10px; font-size: 0.7rem; }
+  }
+  
+  @media (max-width: 480px) {
+    header h1 { font-size: 1rem; }
+    header span { display: none; }
+    
+    .control-group { width: 100%; }
+    select { font-size: 1rem; }
+    label { font-size: 0.65rem; }
+    
+    .tab-button { padding: 8px 10px; font-size: 0.75rem; }
+    
+    #chart { height: 300px; }
+    #comparison-chart { height: 300px; }
+    
+    #chart-container { padding: 10px 12px; }
+    .signal-bar { padding: 8px 12px; }
+    footer { font-size: 0.65rem; padding: 8px; }
+  }
+
 </style>
 </head>
 <body>
