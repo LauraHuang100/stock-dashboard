@@ -31,7 +31,6 @@
   .tab-content.active { display: block; }
   #chart-container { padding: 16px 24px; }
   #chart { width: 100%; height: 620px; }
-  #comparison-chart { width: 100%; height: 620px; }
   .signal-bar { background: #161b22; border-top: 1px solid #30363d; padding: 12px 24px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .signal-bar span { font-size: 0.75rem; color: #8b949e; margin-right: 6px; }
   .signal { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
@@ -62,7 +61,6 @@
     
     #chart-container { padding: 12px 16px; }
     #chart { height: 400px; }
-    #comparison-chart { height: 400px; }
     
     .signal-bar { padding: 10px 16px; gap: 8px; flex-direction: column; align-items: flex-start; }
     .signal-bar span { margin-right: 0; margin-bottom: 4px; }
@@ -80,7 +78,6 @@
     .tab-button { padding: 8px 10px; font-size: 0.75rem; }
     
     #chart { height: 300px; }
-    #comparison-chart { height: 300px; }
     
     #chart-container { padding: 10px 12px; }
     .signal-bar { padding: 8px 12px; }
@@ -126,17 +123,11 @@
     </div>
   </div>
 
-  <div class="control-group">
-    <label>Compare Tickers</label>
-    <div class="checkbox-group" id="overlay-checkboxes"></div>
-  </div>
-
   <div id="status">Loading data…</div>
 </div>
 
 <div class="tabs">
   <button class="tab-button active" data-tab="ticker-tab">📊 Single Ticker</button>
-  <button class="tab-button" data-tab="comparison-tab">🔄 Comparison</button>
 </div>
 
 <div id="ticker-tab" class="tab-content active">
@@ -145,12 +136,6 @@
   </div>
   <div class="signal-bar" id="signal-bar">
     <span>Signals:</span>
-  </div>
-</div>
-
-<div id="comparison-tab" class="tab-content">
-  <div id="chart-container">
-    <div id="comparison-chart"></div>
   </div>
 </div>
 
