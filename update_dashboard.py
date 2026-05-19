@@ -114,12 +114,12 @@ def get_default_config() -> dict:
         # ── Gmail settings ───────────────────────────────────────────────────────
         # Use an App Password (not your regular password):
         # Google Account → Security → 2-Step Verification → App Passwords
-        "gmail_sender":   "Laura.claude.experiment@gmail.com",        # ← CHANGE
-        "gmail_password": "pflm abtf wrrs fbus",      # ← CHANGE (App Password)
-        "gmail_recipient": "laura.huang100@gmail.com",       # ← CHANGE
+        "gmail_sender":   os.getenv("GMAIL_SENDER"),
+        "gmail_password": os.getenv("GMAIL_PASSWORD"),
+        "gmail_recipient": os.getenv("GMAIL_RECIPIENT"),     # ← CHANGE
 
         # Send email only on weekdays (Monday=0 … Friday=4)
-        "send_email": True,
+        "send_email": True
     }
 
 CONFIG = get_default_config()
