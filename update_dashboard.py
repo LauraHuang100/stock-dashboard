@@ -63,51 +63,66 @@ except ImportError:
 # ── Configuration ───────────────────────────────────────────────────────────
 # Edit these values before running
 
-CONFIG = {
-    # Tickers to track. BTC-USD maps to BTC in the dashboard.
-    # Use "yfinance:" prefix for Yahoo Finance tickers, "fred:" for FRED sources
-    "tickers": {
-        "VOO":   "yfinance:VOO",
-        "QQQM":  "yfinance:QQQM",
-        "SMH":   "yfinance:SMH",
-        "DRAM":  "yfinance:DRAM",
-        "FBTC":  "yfinance:FBTC",
-        "XLE":   "yfinance:XLE",
-        "SK hynix": "yfinance:000660.KS",
-        "Samsung Electronics": "yfinance:005930.KS",
-        "Micron Technology": "yfinance:MU",
-    },
+def get_base_path() -> Path:
+    """Locate the repository path for config files.
 
-    # Ticker overlays for comparison (plots multiple tickers on same chart)
-    # Tickers are normalized to % change from first date for meaningful comparison
-    "overlays": {
-        "Tech vs Market": ["SPY", "QQQ"],
-        "Commodities": ["GLD", "XLE"],
-        "Semiconductor Leaders": ["Samsung Electronics", "SK hynix", "Micron Technology"],
-        # "Bitcoin vs Stock Market": ["BTC", "SPY"],
-    },
+    When running from stdin or an interactive shell, __file__ may not exist,
+    so fall back to the current working directory.
+    """
+    try:
+        return Path(__file__).resolve().parent
+    except NameError:
+        return Path.cwd()
 
-    # Start date for historical data (goes back to first available date for each ticker)
-    # Yahoo Finance will return available data; not all tickers have data back to 1920
-    "start_date": "1920-01-01",
 
-    # Path to the HTML dashboard in the repository
-    "html_path": Path(__file__).resolve().parent / "index.html",
+def get_default_config() -> dict:
+    base_path = get_base_path()
+    return {
+        # Tickers to track. BTC-USD maps to BTC in the dashboard.
+        # Use "yfinance:" prefix for Yahoo Finance tickers, "fred:" for FRED sources
+        "tickers": {
+            "VOO":   "yfinance:VOO",
+            "QQQM":  "yfinance:QQQM",
+            "SMH":   "yfinance:SMH",
+            "DRAM":  "yfinance:DRAM",
+            "FBTC":  "yfinance:FBTC",
+            "XLE":   "yfinance:XLE",
+            "SK hynix": "yfinance:000660.KS",
+            "Samsung Electronics": "yfinance:005930.KS",
+            "Micron Technology": "yfinance:MU",
+        },
 
-    # Directory to save chart images temporarily in the repository
-    "chart_dir": Path(__file__).resolve().parent / "charts",
+        # Ticker overlays for comparison (plots multiple tickers on same chart)
+        # Tickers are normalized to % change from first date for meaningful comparison
+        "overlays": {
+            "Tech vs Market": ["SPY", "QQQ"],
+            "Commodities": ["GLD", "XLE"],
+            "Semiconductor Leaders": ["Samsung Electronics", "SK hynix", "Micron Technology"],
+            # "Bitcoin vs Stock Market": ["BTC", "SPY"],
+        },
 
-    # ── Gmail settings ───────────────────────────────────────────────────────
-    # Use an App Password (not your regular password):
-    # Google Account → Security → 2-Step Verification → App Passwords
-    "gmail_sender":   "Laura.claude.experiment@gmail.com",        # ← CHANGE
-    "gmail_password": "pflm abtf wrrs fbus",      # ← CHANGE (App Password)
-    "gmail_recipient": "laura.huang100@gmail.com",       # ← CHANGE
+        # Start date for historical data (goes back to first available date for each ticker)
+        # Yahoo Finance will return available data; not all tickers have data back to 1920
+        "start_date": "1920-01-01",
 
-    # Send email only on weekdays (Monday=0 … Friday=4)
-    "send_email": True,
-}
+        # Path to the HTML dashboard in the repository
+        "html_path": base_path / "index.html",
 
+        # Directory to save chart images temporarily in the repository
+        "chart_dir": base_path / "charts",
+
+        # ── Gmail settings ───────────────────────────────────────────────────────
+        # Use an App Password (not your regular password):
+        # Google Account → Security → 2-Step Verification → App Passwords
+        "gmail_sender":   "Laura.claude.experiment@gmail.com",        # ← CHANGE
+        "gmail_password": "pflm abtf wrrs fbus",      # ← CHANGE (App Password)
+        "gmail_recipient": "laura.huang100@gmail.com",       # ← CHANGE
+
+        # Send email only on weekdays (Monday=0 … Friday=4)
+        "send_email": True,
+    }
+
+CONFIG = get_default_config()
 # WMA periods to compute
 WMA_PERIODS = [20, 50, 200]
 
@@ -430,21 +445,25 @@ def send_email(config: dict, signals: dict, chart_paths: dict):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    config = globals().get("CONFIG")
+    if config is None:
+        config = get_default_config()
+
     print(f"\n{'='*55}")
     print(f"  WMA Updater  —  {datetime.now():%Y-%m-%d %H:%M:%S}")
     print(f"{'='*55}\n")
 
     # 1. Fetch OHLC data
-    chart_data = fetch_data(CONFIG["tickers"], CONFIG["start_date"])
+    chart_data = fetch_data(config["tickers"], config["start_date"])
     if not chart_data:
         print("No data fetched. Exiting.")
         sys.exit(1)
 
     # 2. Inject into HTML dashboard
-    inject_data_into_html(chart_data, CONFIG["html_path"])
+    inject_data_into_html(chart_data, config["html_path"])
 
     # 3. Compute WMAs + signals + generate chart images
-    CONFIG["chart_dir"].mkdir(exist_ok=True)
+    config["chart_dir"].mkdir(exist_ok=True)
     signals     = {}
     chart_paths = {}
 
@@ -457,27 +476,27 @@ def main():
         sig    = determine_signal(prices, wma20, wma50, wma200)
         signals[label] = sig
 
-        img_path = CONFIG["chart_dir"] / f"{label}.png"
+        img_path = config["chart_dir"] / f"{label}.png"
         generate_chart_image(label, data, wma20, wma50, wma200, sig, img_path)
         chart_paths[label] = img_path
         print(f"  {label:6s} → {sig}")
 
     # 3.5 Generate overlay comparison charts
-    if CONFIG.get("overlays"):
+    if config.get("overlays"):
         print(f"\n[{datetime.now():%H:%M:%S}] Generating overlay charts…")
-        for overlay_name, ticker_list in CONFIG["overlays"].items():
+        for overlay_name, ticker_list in config["overlays"].items():
             # Check if all tickers in the overlay exist in fetched data
             valid_tickers = [t for t in ticker_list if t in chart_data]
             if valid_tickers:
-                overlay_path = CONFIG["chart_dir"] / f"overlay_{overlay_name.replace(' ', '_')}.png"
+                overlay_path = config["chart_dir"] / f"overlay_{overlay_name.replace(' ', '_')}.png"
                 generate_overlay_chart(overlay_name, valid_tickers, chart_data, overlay_path)
                 print(f"  {overlay_name:25s} → {overlay_path.name}")
 
     # 4. Send email (weekdays only, if enabled)
-    if CONFIG["send_email"]:
+    if config["send_email"]:
         today = date.today().weekday()   # Mon=0 … Sun=6
         if today < 5:
-            send_email(CONFIG, signals, chart_paths)
+            send_email(config, signals, chart_paths)
         else:
             print(f"\n[{datetime.now():%H:%M:%S}] Weekend — email skipped.")
     else:
