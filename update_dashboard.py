@@ -126,6 +126,16 @@ CONFIG = get_default_config()
 # WMA periods to compute
 WMA_PERIODS = [20, 50, 200]
 
+
+def email_config_is_valid(config: dict) -> bool:
+    """Return True if required Gmail config values are present."""
+    missing = [name for name in ("gmail_sender", "gmail_password", "gmail_recipient") if not config.get(name)]
+    if missing:
+        print(f"  ✗ Email config missing: {', '.join(missing)}")
+        print("    → Set GMAIL_SENDER, GMAIL_PASSWORD, and GMAIL_RECIPIENT in your environment or GitHub secrets.")
+        return False
+    return True
+
 # ── Helper functions ─────────────────────────────────────────────────────────
 
 def compute_wma(prices: list, period: int) -> list:
@@ -430,16 +440,22 @@ def send_email(config: dict, signals: dict, chart_paths: dict):
                 img.add_header("Content-Disposition", "inline", filename=path.name)
                 msg.attach(img)
 
+    if not email_config_is_valid(config):
+        print("  ✗ Email skipped due to missing Gmail configuration.")
+        return False
+
     # Send via Gmail SMTP
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(config["gmail_sender"], config["gmail_password"])
             server.sendmail(config["gmail_sender"], config["gmail_recipient"], msg.as_string())
         print(f"  ✓ Email sent to {config['gmail_recipient']}")
+        return True
     except Exception as e:
         print(f"  ✗ Email failed: {e}")
         print("    → Ensure you're using a Gmail App Password, not your regular password.")
         print("    → See: https://support.google.com/accounts/answer/185833")
+        return False
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -496,7 +512,8 @@ def main():
     if config["send_email"]:
         today = date.today().weekday()   # Mon=0 … Sun=6
         if today < 5:
-            send_email(config, signals, chart_paths)
+            if not send_email(config, signals, chart_paths):
+                print(f"\n[{datetime.now():%H:%M:%S}] Email was not sent.")
         else:
             print(f"\n[{datetime.now():%H:%M:%S}] Weekend — email skipped.")
     else:

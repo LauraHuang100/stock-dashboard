@@ -2,18 +2,22 @@ name: Daily Stock Dashboard
 
 on:
   schedule:
-    - cron: '0 22 * * 1-5'
+    - cron: '0 22 * * 1-5'  # Runs at 22:00 UTC on weekdays, after US market close
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+  GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+  GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repo
         uses: actions/checkout@v4
 
@@ -36,7 +40,5 @@ jobs:
           git config user.email github-actions@github.com
 
           git add index.html
-
           git commit -m "Daily dashboard update" || echo "No changes"
-
           git push
