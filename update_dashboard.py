@@ -265,25 +265,14 @@ def fetch_data(tickers: dict, start: str) -> dict:
     return chart_data
 
 
-def inject_data_into_html(chart_data: dict, html_path: Path):
-    """Replace or insert __CHART_DATA__ in the HTML file."""
-    html = html_path.read_text(encoding="utf-8")
-    json_str = json.dumps(chart_data, separators=(",", ":"))
-    inject = f"window.__CHART_DATA__ = {json_str};"
-
-    # Replace existing injection or placeholder if present
-    pattern = r"window\.__CHART_DATA__\s*=\s*(?:null|\{.*?\});"
-    if re.search(pattern, html, flags=re.DOTALL):
-        html = re.sub(pattern, inject, html, flags=re.DOTALL)
-    else:
-        # Insert before closing </script> of the data block or before first <script>
-        html = html.replace(
-            "const CHART_DATA = window.__CHART_DATA__ || null;",
-            inject + "\nconst CHART_DATA = window.__CHART_DATA__ || null;"
-        )
-
-    html_path.write_text(html, encoding="utf-8")
-    print(f"[{datetime.now():%H:%M:%S}] HTML updated: {html_path}")
+def write_chart_json(chart_data: dict, json_path: Path):
+    """Write the latest chart data to a JSON file for the dashboard to fetch."""
+    payload = {
+        "version": datetime.utcnow().isoformat() + "Z",
+        "data": chart_data,
+    }
+    json_path.write_text(json.dumps(payload, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    print(f"[{datetime.now():%H:%M:%S}] Data JSON updated: {json_path}")
 
 
 def generate_chart_image(label: str, data: dict, wma20, wma50, wma200, signal: str, out_path: Path):
@@ -475,8 +464,9 @@ def main():
         print("No data fetched. Exiting.")
         sys.exit(1)
 
-    # 2. Inject into HTML dashboard
-    inject_data_into_html(chart_data, config["html_path"])
+    # 2. Write fresh chart JSON so the webpage always fetches current data
+    data_json_path = config["html_path"].parent / "chart_data.json"
+    write_chart_json(chart_data, data_json_path)
 
     # 3. Compute WMAs + signals + generate chart images
     config["chart_dir"].mkdir(exist_ok=True)

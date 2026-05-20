@@ -39,6 +39,6 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
 
-          git add index.html
+          git add index.html chart_data.json
           git commit -m "Daily dashboard update" || echo "No changes"
           git push
