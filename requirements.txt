@@ -1,6 +1,5 @@
-matplotlib
-pandas
-pandas-datareader
-plotly
-requests
-yfinance
+pandas==2.2.2
+yfinance==0.2.58
+numpy==1.26.4
+matplotlib==3.10.1
+requests==2.32.3
