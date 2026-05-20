@@ -100,6 +100,7 @@ const signalBar = document.getElementById('signal-bar');
 const chartContainer = document.getElementById('chart');
 const DATA_URL = `./chart_data.json?cacheBust=${Date.now()}`;
 let CHART_DATA = null;
+// tickerSelect options are built from chart_data.json and will include newly added symbols like TNX automatically.
 
 async function loadChartData() {
   statusEl.textContent = 'Loading latest data…';

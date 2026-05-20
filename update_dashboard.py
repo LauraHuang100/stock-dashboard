@@ -87,6 +87,7 @@ def get_default_config() -> dict:
             "DRAM":  "yfinance:DRAM",
             "FBTC":  "yfinance:FBTC",
             "XLE":   "yfinance:XLE",
+            "TNX":   "yfinance:^TNX",
             "SK hynix": "yfinance:000660.KS",
             "Samsung Electronics": "yfinance:005930.KS",
             "Micron Technology": "yfinance:MU",
