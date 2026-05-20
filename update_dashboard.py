@@ -276,6 +276,30 @@ def write_chart_json(chart_data: dict, json_path: Path):
     print(f"[{datetime.now():%H:%M:%S}] Data JSON updated: {json_path}")
 
 
+def embed_chart_data_in_html(chart_data: dict, html_path: Path):
+    """Embed latest chart JSON into the HTML for local file-based viewing."""
+    html = html_path.read_text(encoding="utf-8")
+    json_str = json.dumps({"version": datetime.utcnow().isoformat() + "Z", "data": chart_data}, separators=(",", ":"), ensure_ascii=False)
+    script_block = f'<script id="chart-data-json" type="application/json">{json_str}</script>'
+
+    if 'id="chart-data-json"' in html:
+        html = re.sub(
+            r'<script\s+id="chart-data-json"[^>]*>.*?</script>',
+            script_block,
+            html,
+            flags=re.DOTALL,
+        )
+    else:
+        html = html.replace(
+            "</div>\n\n<script>",
+            f"</div>\n\n{script_block}\n\n<script>",
+            1,
+        )
+
+    html_path.write_text(html, encoding="utf-8")
+    print(f"[{datetime.now():%H:%M:%S}] Embedded chart data into HTML: {html_path}")
+
+
 def generate_chart_image(label: str, data: dict, wma20, wma50, wma200, signal: str, out_path: Path):
     """Generate a matplotlib chart and save to disk."""
     import matplotlib.ticker
@@ -468,6 +492,7 @@ def main():
     # 2. Write fresh chart JSON so the webpage always fetches current data
     data_json_path = config["html_path"].parent / "chart_data.json"
     write_chart_json(chart_data, data_json_path)
+    embed_chart_data_in_html(chart_data, config["html_path"])
 
     # 3. Compute WMAs + signals + generate chart images
     config["chart_dir"].mkdir(exist_ok=True)
