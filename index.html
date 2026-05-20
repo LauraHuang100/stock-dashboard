@@ -118,7 +118,10 @@ async function loadChartData() {
     renderChart();
   } catch (error) {
     statusEl.textContent = 'Data load failed';
-    chartContainer.innerHTML = `<div class="empty-state">Unable to load chart data: ${error.message}</div>`;
+    const notFound = error.message.includes('HTTP 404');
+    chartContainer.innerHTML = `<div class="empty-state">${notFound
+      ? 'chart_data.json was not found. Run the dashboard updater to generate fresh data, then refresh this page.'
+      : `Unable to load chart data: ${error.message}`}</div>`;
   }
 }
 
