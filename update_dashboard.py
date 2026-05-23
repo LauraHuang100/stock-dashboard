@@ -243,6 +243,215 @@ def determine_signal(prices, wma20, wma50, wma200) -> str:
     return "🟡 Neutral"
 
 
+def last_valid_value(values: list):
+    """Return the last finite numeric value from a sequence, or None."""
+    if not values:
+        return None
+
+    for value in reversed(values):
+        if value is None:
+            continue
+
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        if math.isfinite(numeric):
+            return round(numeric, 4)
+
+    return None
+
+
+def classify_technical_score(score: float) -> str:
+    """Convert a weighted score to a market classification."""
+    if score >= 20:
+        return "Bullish"
+    if score <= -20:
+        return "Bearish"
+    return "Neutral"
+
+
+def confidence_label(score: float) -> str:
+    """Map an absolute score to a confidence label."""
+    magnitude = abs(score)
+    if magnitude >= 70:
+        return "High"
+    if magnitude >= 35:
+        return "Medium"
+    return "Low"
+
+
+def calculate_technical_score(price, wma20, wma50, wma200, rsi_value, macd_value, macd_signal, upper_band, lower_band, volume_label):
+    """Compute a combined technical score from -100 to +100."""
+    score = 0
+
+    if price is not None and wma20 is not None:
+        score += 15 if price > wma20 else -15
+    if price is not None and wma50 is not None:
+        score += 10 if price > wma50 else -10
+    if price is not None and wma200 is not None:
+        score += 20 if price > wma200 else -20
+    if wma20 is not None and wma50 is not None:
+        score += 10 if wma20 > wma50 else -10
+
+    if rsi_value is not None:
+        if rsi_value >= 70:
+            score -= 15
+        elif rsi_value <= 30:
+            score += 12
+        elif rsi_value >= 55:
+            score += 5
+        elif rsi_value <= 45:
+            score -= 5
+
+    if macd_value is not None and macd_signal is not None:
+        score += 15 if macd_value > macd_signal else -15
+
+    if price is not None and upper_band is not None and lower_band is not None:
+        if price >= upper_band:
+            score += 8
+        elif price <= lower_band:
+            score -= 8
+        elif price >= ((upper_band + lower_band) / 2):
+            score += 3
+
+    if volume_label == "Expanding":
+        score += 7
+    elif volume_label == "Contracting":
+        score -= 7
+
+    return int(max(-100, min(100, round(score))))
+
+
+def format_signal_tuple(label: str, direction: str, value=None) -> str:
+    """Create a human-readable signal phrase for narrative bullets."""
+    if value is None:
+        return f"{label}: data unavailable"
+
+    return f"{label}: {direction} at {round(float(value), 4)}"
+
+
+def build_rsi_phrase(rsi_value):
+    if rsi_value is None:
+        return "RSI is unavailable this update."
+    if rsi_value >= 70:
+        return "RSI is overbought, warning that momentum may be stretched."
+    if rsi_value <= 30:
+        return "RSI is oversold, suggesting buyers may be gaining control."
+    if rsi_value >= 55:
+        return "RSI is elevated but still below the overbought zone, which keeps momentum constructive."
+    if rsi_value <= 45:
+        return "RSI is softening, indicating a more cautious market tone."
+    return "RSI is balanced, reflecting a neutral momentum regime."
+
+
+def build_macd_phrase(macd_value, macd_signal):
+    if macd_value is None or macd_signal is None:
+        return "MACD data is unavailable this update."
+    return (
+        "MACD remains above its signal line, confirming upward momentum."
+        if macd_value > macd_signal
+        else "MACD is below its signal line, pointing to waning momentum."
+    )
+
+
+def build_bollinger_phrase(price, upper_band, lower_band):
+    if price is None or upper_band is None or lower_band is None:
+        return "Bollinger Band data is unavailable this update."
+    if price >= upper_band:
+        return "Price is trading near the upper Bollinger Band, which can signal extended upside."
+    if price <= lower_band:
+        return "Price is pressing the lower Bollinger Band, which suggests downside pressure."
+    if price >= ((upper_band + lower_band) / 2):
+        return "Price is holding above the Bollinger midpoint, indicating firm but not stretched conditions."
+    return "Price is trading in the middle of the Bollinger range, suggesting a balanced setup."
+
+
+def build_volume_phrase(volume_label):
+    if volume_label == "Expanding":
+        return "Volume is rising, which usually supports the current move with stronger conviction."
+    if volume_label == "Contracting":
+        return "Volume is fading, which can weaken follow-through and reduce conviction."
+    return "Volume is steady, indicating a balanced level of participation."
+
+
+def build_wma_phrase(price, wma20, wma50, wma200):
+    if price is None or wma20 is None or wma50 is None or wma200 is None:
+        return "Weighted moving average data is unavailable this update."
+
+    if price > wma20 and price > wma50 and price > wma200 and wma20 > wma50:
+        return "Price is holding above the short-, intermediate-, and long-term weighted moving averages, with the short trend leading the move."
+    if price < wma20 and price < wma50 and price < wma200:
+        return "Price is below the weighted moving averages, which points to a weaker trend backdrop."
+    if price > wma20 and price > wma50:
+        return "Price is trading above the short and intermediate weighted moving averages, suggesting a supportive trend."
+    return "Price is mixed relative to the weighted moving averages, so the trend is still being resolved."
+
+
+def generate_market_narrative(ticker, prices, wma20, wma50, wma200, rsi_series, indicators, updated_at):
+    """Create a narrative payload for a single ticker."""
+    price = last_valid_value(prices)
+    rsi_value = last_valid_value(rsi_series)
+    macd_value = indicators.get("macd", {}).get("macd") if indicators else None
+    macd_signal = indicators.get("macd", {}).get("signal") if indicators else None
+    upper_band = indicators.get("bollinger", {}).get("upper") if indicators else None
+    lower_band = indicators.get("bollinger", {}).get("lower") if indicators else None
+    volume_label = indicators.get("volume", {}).get("label") if indicators else None
+    score = calculate_technical_score(
+        price,
+        last_valid_value(wma20),
+        last_valid_value(wma50),
+        last_valid_value(wma200),
+        rsi_value,
+        macd_value,
+        macd_signal,
+        upper_band,
+        lower_band,
+        volume_label,
+    )
+    classification = classify_technical_score(score)
+
+    # Only bullet points, no summary
+    signals = []
+    wma_bullet = build_wma_phrase(price, last_valid_value(wma20), last_valid_value(wma50), last_valid_value(wma200))
+    if wma_bullet not in signals:
+        signals.append(wma_bullet)
+    rsi_bullet = build_rsi_phrase(rsi_value)
+    if rsi_bullet not in signals:
+        signals.append(rsi_bullet)
+    macd_bullet = build_macd_phrase(macd_value, macd_signal)
+    if macd_bullet not in signals:
+        signals.append(macd_bullet)
+    boll_bullet = build_bollinger_phrase(price, upper_band, lower_band)
+    if boll_bullet not in signals:
+        signals.append(boll_bullet)
+    vol_bullet = build_volume_phrase(volume_label)
+    if vol_bullet not in signals:
+        signals.append(vol_bullet)
+
+    # Convert UTC to America/New_York (EST/EDT)
+    import pytz
+    from datetime import datetime as dt
+    utc_dt = None
+    try:
+        utc_dt = dt.strptime(updated_at.replace(" UTC", ""), "%Y-%m-%d %H:%M")
+        utc_dt = pytz.utc.localize(utc_dt)
+        est_dt = utc_dt.astimezone(pytz.timezone("America/New_York"))
+        updated_at_est = est_dt.strftime("%Y-%m-%d %H:%M EST")
+    except Exception:
+        updated_at_est = updated_at
+
+    return {
+        "ticker": ticker,
+        "classification": classification,
+        "score": score,
+        "confidence": confidence_label(score),
+        "updated_at": updated_at_est,
+        "signals": signals,
+    }
+
+
 def fetch_data(tickers: dict, start: str) -> dict:
     """Download OHLC data from Yahoo Finance or FRED."""
     print(f"[{datetime.now():%H:%M:%S}] Fetching data from Yahoo Finance and FRED…")
@@ -576,22 +785,35 @@ def main():
         print("No data fetched. Exiting.")
         sys.exit(1)
 
-    # 2. Write fresh chart JSON so the webpage always fetches current data
-    data_json_path = config["html_path"].parent / "chart_data.json"
-    write_chart_json(chart_data, data_json_path)
-    embed_chart_data_in_html(chart_data, config["html_path"])
-
-    # 3. Compute WMAs + signals + generate chart images
+    # 2. Compute the current market narrative and indicator payloads
     config["chart_dir"].mkdir(exist_ok=True)
     signals     = {}
     chart_paths = {}
 
     print(f"\n[{datetime.now():%H:%M:%S}] Computing WMAs and generating charts…")
+    analysis_updated = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     for label, data in chart_data.items():
         prices = data["close"]
+        volume = data.get("volume") or []
+        indicators = data.get("indicators") or compute_indicator_summary(prices, volume)
+        data["indicators"] = indicators
+
         wma20  = compute_wma(prices, 20)
         wma50  = compute_wma(prices, 50)
         wma200 = compute_wma(prices, 200)
+        rsi_series = data.get("rsi") or compute_rsi(prices)
+        data["rsi"] = rsi_series
+        data["narrative"] = generate_market_narrative(
+            label,
+            prices,
+            wma20,
+            wma50,
+            wma200,
+            rsi_series,
+            indicators,
+            analysis_updated,
+        )
+
         sig    = determine_signal(prices, wma20, wma50, wma200)
         signals[label] = sig
 
@@ -611,7 +833,12 @@ def main():
                 generate_overlay_chart(overlay_name, valid_tickers, chart_data, overlay_path)
                 print(f"  {overlay_name:25s} → {overlay_path.name}")
 
-    # 4. Send email (weekdays only, if enabled)
+    # 4. Write fresh chart JSON and embed the dashboard payload
+    data_json_path = config["html_path"].parent / "chart_data.json"
+    write_chart_json(chart_data, data_json_path)
+    embed_chart_data_in_html(chart_data, config["html_path"])
+
+    # 5. Send email (weekdays only, if enabled)
     if config["send_email"]:
         today = date.today().weekday()   # Mon=0 … Sun=6
         if today < 5:
