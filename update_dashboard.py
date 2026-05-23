@@ -10,6 +10,8 @@ Cron: 30 17 * * 1-5   (5:30 PM every weekday)
 """
 
 import json
+import logging
+import math
 import os
 import re
 import smtplib
@@ -20,6 +22,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from pathlib import Path
+
+from utils.indicators import compute_indicator_summary
 
 # ── Dependencies ────────────────────────────────────────────────────────────
 try:
@@ -59,6 +63,9 @@ except ImportError:
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
     from matplotlib.patches import Patch
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 # ── Configuration ───────────────────────────────────────────────────────────
 # Edit these values before running
@@ -154,6 +161,68 @@ def compute_wma(prices: list, period: int) -> list:
     return result
 
 
+def clamp_rsi_value(value) -> float | None:
+    """Bound RSI values to the 0-100 range and reject non-finite values."""
+    if value is None:
+        return None
+
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(numeric):
+        return None
+
+    return round(min(100.0, max(0.0, numeric)), 4)
+
+
+def compute_rsi(prices: list, period: int = 14) -> list:
+    """Compute Relative Strength Index using standard Wilder smoothing."""
+    if not prices:
+        return []
+
+    if len(prices) <= period:
+        logger.warning("RSI skipped: insufficient history (%d prices for %d-period RSI).", len(prices), period)
+        return [None] * len(prices)
+
+    result = [None] * len(prices)
+
+    gains = 0.0
+    losses = 0.0
+    for idx in range(1, period + 1):
+        change = prices[idx] - prices[idx - 1]
+        if change >= 0:
+            gains += change
+        else:
+            losses -= change
+
+    avg_gain = gains / period
+    avg_loss = losses / period
+
+    if avg_loss == 0:
+        result[period] = 100.0
+    else:
+        result[period] = round(100 - (100 / (1 + (avg_gain / avg_loss))), 4)
+
+    for idx in range(period + 1, len(prices)):
+        change = prices[idx] - prices[idx - 1]
+        gain = max(change, 0)
+        loss = max(-change, 0)
+
+        avg_gain = ((avg_gain * (period - 1)) + gain) / period
+        avg_loss = ((avg_loss * (period - 1)) + loss) / period
+
+        if avg_loss == 0:
+            rsi_value = 100.0
+        else:
+            rsi_value = 100 - (100 / (1 + (avg_gain / avg_loss)))
+
+        result[idx] = round(rsi_value, 4)
+
+    return [clamp_rsi_value(value) for value in result]
+
+
 def determine_signal(prices, wma20, wma50, wma200) -> str:
     """Return 'Bullish', 'Bearish', or 'Neutral' for the ticker."""
     if not prices:
@@ -232,12 +301,17 @@ def fetch_data(tickers: dict, start: str) -> dict:
                     continue
                 
                 df = df.dropna()
+                closes = [round(float(v), 4) for v in df['value']]
+                indicator_summary = compute_indicator_summary(closes, [None] * len(closes))
                 chart_data[label] = {
                     "dates": [str(d.date()) for d in df.index],
-                    "open":  [round(float(v), 4) for v in df['value']],
-                    "high":  [round(float(v), 4) for v in df['value']],
-                    "low":   [round(float(v), 4) for v in df['value']],
-                    "close": [round(float(v), 4) for v in df['value']],
+                    "open":  closes,
+                    "high":  closes,
+                    "low":   closes,
+                    "close": closes,
+                    "volume": [None] * len(closes),
+                    "rsi":   compute_rsi(closes),
+                    "indicators": indicator_summary,
                 }
                 print(f"  ✓ {label}: {len(df)} rows (FRED)")
             else:
@@ -254,12 +328,21 @@ def fetch_data(tickers: dict, start: str) -> dict:
                     df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
                 
                 df = df.dropna(subset=["Close"])
+                closes = [round(float(v), 4) for v in df["Close"]]
+                volume = [
+                    round(float(v), 4) if pd.notna(v) else None
+                    for v in df.get("Volume", [None] * len(df))
+                ]
+                indicator_summary = compute_indicator_summary(closes, volume)
                 chart_data[label] = {
                     "dates": [str(d.date()) for d in df.index],
                     "open":  [round(float(v), 4) for v in df["Open"]],
                     "high":  [round(float(v), 4) for v in df["High"]],
                     "low":   [round(float(v), 4) for v in df["Low"]],
-                    "close": [round(float(v), 4) for v in df["Close"]],
+                    "close": closes,
+                    "volume": volume,
+                    "rsi":   compute_rsi(closes),
+                    "indicators": indicator_summary,
                 }
                 print(f"  ✓ {label}: {len(df)} rows (Yahoo Finance)")
         except Exception as e:
