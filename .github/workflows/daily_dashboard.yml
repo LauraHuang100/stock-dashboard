@@ -1,0 +1,90 @@
+name: Daily Stock Dashboard
+
+on:
+  schedule:
+    # 7:30 PM EST/EDT = 00:30 UTC (next day)
+    - cron: '30 0 * * 2-6'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+  GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+  GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Dashboard Script
+        run: |
+          python update_dashboard.py
+
+      - name: Commit Updated Dashboard
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          git add .
+
+          git commit -m "Daily dashboard update" || echo "No changes"
+
+          git pull --rebase
+          git push
+
+      - name: Send Email Notification
+        run: |
+          python <<EOF
+          import smtplib
+          import os
+          from email.mime.text import MIMEText
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          sender = os.environ["GMAIL_SENDER"]
+          password = os.environ["GMAIL_PASSWORD"]
+          recipient = os.environ["GMAIL_RECIPIENT"]
+
+          dashboard_url = "https://laurahuang100.github.io/stock-dashboard/"
+
+          now = datetime.now(ZoneInfo("America/New_York"))
+          formatted_time = now.strftime("%Y-%m-%d %I:%M %p %Z")
+
+          body = f"""Daily stock dashboard update completed successfully.
+
+Dashboard Link:
+{dashboard_url}
+
+Updated:
+{formatted_time}
+"""
+
+          msg = MIMEText(body)
+          msg["Subject"] = "Daily Stock Dashboard Updated"
+          msg["From"] = sender
+          msg["To"] = recipient
+
+          server = smtplib.SMTP("smtp.gmail.com", 587)
+          server.starttls()
+          server.login(sender, password)
+          server.sendmail(sender, recipient, msg.as_string())
+          server.quit()
+
+          print("Email sent successfully.")
+          EOF
