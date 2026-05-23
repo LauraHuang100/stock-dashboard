@@ -1,76 +1,50 @@
-name: Daily Stock Dashboard
-
-on:
-  schedule:
-    - cron: '0 22 * * 1-5'  # Runs at 22:00 UTC on weekdays, after US market close
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-env:
-  GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
-  GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-  GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Dependencies
+      - name: Send Email Notification
         run: |
-          pip install -r requirements.txt
+          python <<EOF
+          import smtplib
+          import os
+          from email.mime.text import MIMEText
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
 
-      - name: Print Python version
-        run: |
-          python --version
+          sender = os.environ["GMAIL_SENDER"]
+          password = os.environ["GMAIL_PASSWORD"]
+          recipient = os.environ["GMAIL_RECIPIENT"]
 
-      - name: Print pip packages
-        run: |
-          pip list
+          dashboard_url = "https://laurahuang100.github.io/stock-dashboard/"
 
-      - name: Check Gmail secrets are present
-        run: |
-          if [ -n "${GMAIL_SENDER}" ]; then
-            echo "GMAIL_SENDER secret exists"
-          else
-            echo "GMAIL_SENDER secret missing"
-          fi
+          now = datetime.now(ZoneInfo("America/New_York"))
 
-          if [ -n "${GMAIL_PASSWORD}" ]; then
-            echo "GMAIL_PASSWORD secret exists"
-          else
-            echo "GMAIL_PASSWORD secret missing"
-          fi
+          formatted_time = now.strftime("%Y-%m-%d %I:%M %p %Z")
 
-          if [ -n "${GMAIL_RECIPIENT}" ]; then
-            echo "GMAIL_RECIPIENT secret exists"
-          else
-            echo "GMAIL_RECIPIENT secret missing"
-          fi
+          body = f"""
+          Daily stock dashboard update completed successfully.
 
-      - name: Run SMTP test
-        run: |
-          python test_email.py
+          Dashboard Link:
+          {dashboard_url}
 
-      - name: Run Dashboard Script
-        run: |
-          python update_dashboard.py
+          Updated:
+          {formatted_time}
+          """
 
-      - name: Commit Updated Dashboard
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          msg = MIMEText(body)
 
-          git add index.html chart_data.json
-          git commit -m "Daily dashboard update" || echo "No changes"
-          git push
+          msg["Subject"] = "Daily Stock Dashboard Updated"
+          msg["From"] = sender
+          msg["To"] = recipient
+
+          print("Connecting to Gmail SMTP...")
+
+          server = smtplib.SMTP("smtp.gmail.com", 587)
+          server.starttls()
+
+          print("Logging in...")
+          server.login(sender, password)
+
+          print("Sending email...")
+          server.sendmail(sender, recipient, msg.as_string())
+
+          server.quit()
+
+          print("SUCCESS: Email sent.")
+          EOF
