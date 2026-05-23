@@ -4,9 +4,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  test-email:
     runs-on: ubuntu-latest
 
+    env:
+      GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
+
     steps:
-      - name: Test
-        run: echo "hello"
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Send test email
+        run: |
+          python <<EOF
+          import smtplib
+          import os
+          from email.mime.text import MIMEText
+
+          sender = os.environ["GMAIL_SENDER"]
+          password = os.environ["GMAIL_PASSWORD"]
+          recipient = os.environ["GMAIL_RECIPIENT"]
+
+          print("Connecting to Gmail SMTP...")
+
+          msg = MIMEText("GitHub Actions email test successful.")
+          msg["Subject"] = "GitHub Actions Test Email"
+          msg["From"] = sender
+          msg["To"] = recipient
+
+          server = smtplib.SMTP("smtp.gmail.com", 587)
+          server.starttls()
+
+          print("Logging in...")
+          server.login(sender, password)
+
+          print("Sending email...")
+          server.sendmail(sender, recipient, msg.as_string())
+
+          server.quit()
+
+          print("SUCCESS: Email sent.")
+          EOF
