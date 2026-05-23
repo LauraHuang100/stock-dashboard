@@ -30,6 +30,38 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Print Python version
+        run: |
+          python --version
+
+      - name: Print pip packages
+        run: |
+          pip list
+
+      - name: Check Gmail secrets are present
+        run: |
+          if [ -n "${GMAIL_SENDER}" ]; then
+            echo "GMAIL_SENDER secret exists"
+          else
+            echo "GMAIL_SENDER secret missing"
+          fi
+
+          if [ -n "${GMAIL_PASSWORD}" ]; then
+            echo "GMAIL_PASSWORD secret exists"
+          else
+            echo "GMAIL_PASSWORD secret missing"
+          fi
+
+          if [ -n "${GMAIL_RECIPIENT}" ]; then
+            echo "GMAIL_RECIPIENT secret exists"
+          else
+            echo "GMAIL_RECIPIENT secret missing"
+          fi
+
+      - name: Run SMTP test
+        run: |
+          python test_email.py
+
       - name: Run Dashboard Script
         run: |
           python update_dashboard.py
